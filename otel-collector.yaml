@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-config
+data:
+  otel-collector-config.yaml: |
+    receivers:
+        otlp:
+            protocols:
+                grpc:
+
+    exporters:
+        prometheus:
+            endpoint: 0.0.0.0:8889
+            resource_to_telemetry_conversion:
+                enabled: true
+        loki:
+            endpoint: "http://loki.loki.jenkins.svc.cluster.local:3100/loki/api/v1/push"
+            labels:
+                resource:
+                    service.name: "service_name"
+                    service.namespace: "service_namespace"
+                    service.instance.id: "service_instance_id"
+                attributes:
+                    log.level: "level"
+                    thread.id: "thread_id"
+                    code.namespace: "code_namespace"
+                    code.function: "code_function"
+                    exception.type: "exception_type"
+                    exception.message: "exception_message"
+                    exception.stacktrace: "exception_stacktrace"
+        logging:
+            logLevel: info
+
+    processors:
+        batch:
+
+    extensions:
+        health_check:
+        pprof:
+            endpoint: :1888
+        zpages:
+            endpoint: :55679
+
+    service:
+        extensions: [pprof, zpages, health_check]
+        pipelines:
+            metrics:
+                receivers:
+                    - otlp
+                exporters:
+                    - prometheus
+
+            logs:
+                receivers:
+                    - otlp
+                exporters:
+                    - loki
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: otel
+  labels:
+    name: otel
+spec:
+  hostname: collector
+  subdomain: otel
+  containers:
+    - name: otel
+      image: otel/opentelemetry-collector-contrib
+      ports:
+      - containerPort: 55680
+      - containerPort: 8889
+      volumeMounts:
+      - name: otel-volume
+        mountPath: "/etc/otel"
+        readOnly: true
+  volumes:
+  - name: otel-volume
+    configMap:
+      name: otel-config
+      items:
+      - key: "otel-collector-config.yaml"
+        path: "config.yaml"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel
+spec:
+  type: NodePort
+  ports:
+  - port: 55680
+    targetPort: 55680
+  selector:
+    name: otel

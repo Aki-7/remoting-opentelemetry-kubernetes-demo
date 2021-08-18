@@ -1,1 +1,0 @@
-# Remoting Opentelemetry Kubernetes demo

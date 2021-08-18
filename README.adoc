@@ -1,0 +1,129 @@
+== Jenkins Remoting OpenTelemetry Plugin Kubernetes Demo
+
+This is the kubernetes demo of link:https://github.com/jenkinsci/remoting-opentelemetry-plugin[Jenkins Remoting OpenTelemetry Plugin]
+
+=== Prerequisites
+*Docker*
+Refer to the link:https://docs.docker.com/engine/install/[Docker Engine installation instructions] for your platform
+
+=== Create a minikube cluster
+
+. Install minikube by following the steps from
+the link:https://kubernetes.io/docs/tasks/tools/install-minikube/[Install minikube] site.
+. Install kubectl. See the instructions from
+the link:https://kubernetes.io/docs/tasks/tools/#kubectl[Install and Set Up kubectl] page.
+. Create a minikube cluster
+
+[source,console]
+....
+$ minikube start
+....
+
+=== Create a namespace
+
+[source,console]
+....
+$ kubectl create namespace jenkins
+....
+
+=== Setup Jenkins controller, Loki, Otel collector, Prometheus, Grafana
+
+Clone this repository, and set up pods.
+
+[source,console]
+....
+$ kubectl create -f jenkins.yaml -f loki.yaml -f otel-collector.yaml -f prometheus.yaml -f grafana.yaml -n jenkins
+....
+
+Wait all pods to be ready
+
+[source,console]
+....
+$ kubectl get pods -n jenkins
+....
+
+=== Jenkins Agents Configuration
+
+You can now access to the Jenkins controller.
+If you are using minikube, you can get the url by the following command
+
+[source,console]
+....
+$ minikube service jenkins -n jenkins --url
+....
+
+In order to configure the Kubernetes agents, we need to know the `Kubernetes URL` and `Jenkins URL`.
+
+You can get the `Kubernetes URL` by the following command.
+
+[source,console]
+....
+$ kubectl cluster-info
+Kubernetes master is running at https://192.168.49.2:8443
+CoreDNS is running at https://192.168.49.2:8443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+....
+
+The port of `Jenkins URL` is standard `8080`, and you can get IP address by the following command.
+
+[source,console]
+....
+$ kubectl describe pod jenkins -n jenkins | grep IP:
+IP:           172.17.0.3
+  IP:  172.17.0.3
+....
+
+In this case, `Kubernetes URL` is `https://192.168.49.2:8443` and `Jenkins URL` is `http://172.17.0.3:8080`.
+
+==== Kubernetes Plugin Configuration
+
+Now, we are ready to fill in the Kubernetes plugin configuration. In order to do that, open the Jenkins UI and navigate to “Manage Jenkins → Manage Nodes and Clouds → Configure Clouds → Add a new cloud → Kubernetes and fill in the Kubernetes URL and Jenkins URL appropriately, by using the values which we have just collected in the previous step.
+
+==== Create and execute a sample pipeline
+
+Next, we will create and execute a pipeline. Please use this sample pipeline script.
+
+[source,groovy]
+....
+podTemplate(containers:[
+  containerTemplate(
+    name: 'jnlp',
+    image: 'ghcr.io/aki-7/remoting-opentelemetry-kubernetes-demo/agent',
+    alwaysPullImage: true,
+    args: '${computer.jnlpmac} ${computer.name}',
+    envVars: [
+      envVar(key: 'OTEL_EXPORTER_OTLP_ENDPOINT', value: 'http://collector.otel.jenkins.svc.cluster.local:55680')
+    ]
+  ),
+]) {
+  node(POD_LABEL) {
+    stage('Run shell') {
+        sh 'echo hello && sleep 300'
+    }
+  }
+}
+....
+
+==== Check Logs and metrics in Grafana
+
+If you can start the pipeline successfully, the metrics and logs are sent to
+the observability backends.
+
+Open grafana
+
+[source, console]
+....
+$ minikube service grafana -n jenkins
+....
+
+and explore logs and metrics produced by the agent.
+You can filter the logs and metrics by service_instance_id which is equal to the JENKINS_AGENT_NAME.
+
+=== Clean up
+
+[source,console]
+....
+$ minikube stop
+$ minikube delete
+....

@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+data:
+  grafana.ini: |
+    [auth]
+    disable_login_form = true
+
+    [auth.anonymous]
+    enabled = true
+    org_name = Main Org.
+    org_role = Admin
+  datasource.yaml: |
+    # config file version
+    apiVersion: 1
+
+    datasources:
+        - name: Loki
+          type: loki
+          url: http://loki.loki.jenkins.svc.cluster.local:3100
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus.prometheus.jenkins.svc.cluster.local:9090
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: grafana
+  labels:
+    name: grafana
+spec:
+  containers:
+    - name: grafana
+      image: grafana/grafana:latest
+      ports:
+      - containerPort: 3000
+      volumeMounts:
+      - name: grafana-volume
+        mountPath: "/etc/grafana"
+        readOnly: true
+  volumes:
+  - name: grafana-volume
+    configMap:
+      name: grafana-config
+      items:
+      - key: "grafana.ini"
+        path: "grafana.ini"
+      - key: "datasource.yaml"
+        path: "provisioning/datasources/datasource.yaml"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+spec:
+  type: NodePort
+  ports:
+  - port: 3000
+    targetPort: 3000
+  selector:
+    name: grafana
