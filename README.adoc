@@ -4,6 +4,7 @@ This is the kubernetes demo of link:https://github.com/jenkinsci/remoting-opente
 
 === Prerequisites
 *Docker*
+
 Refer to the link:https://docs.docker.com/engine/install/[Docker Engine installation instructions] for your platform
 
 === Create a minikube cluster
@@ -16,14 +17,14 @@ the link:https://kubernetes.io/docs/tasks/tools/#kubectl[Install and Set Up kube
 
 [source,console]
 ....
-$ minikube start
+minikube start
 ....
 
 === Create a namespace
 
 [source,console]
 ....
-$ kubectl create namespace jenkins
+kubectl create namespace jenkins
 ....
 
 === Setup Jenkins controller, Loki, Otel collector, Prometheus, Grafana
@@ -32,14 +33,14 @@ Clone this repository, and set up pods.
 
 [source,console]
 ....
-$ kubectl create -f jenkins.yaml -f loki.yaml -f otel-collector.yaml -f prometheus.yaml -f grafana.yaml -n jenkins
+kubectl create -f jenkins.yaml -f loki.yaml -f otel-collector.yaml -f prometheus.yaml -f grafana.yaml -n jenkins
 ....
 
 Wait all pods to be ready
 
 [source,console]
 ....
-$ kubectl get pods -n jenkins
+kubectl get pods -n jenkins
 ....
 
 === Jenkins Agents Configuration
@@ -49,7 +50,7 @@ If you are using minikube, you can get the url by the following command
 
 [source,console]
 ....
-$ minikube service jenkins -n jenkins --url
+minikube service jenkins -n jenkins --url
 ....
 
 In order to configure the Kubernetes agents, we need to know the `Kubernetes URL` and `Jenkins URL`.
@@ -114,7 +115,7 @@ Open grafana
 
 [source, console]
 ....
-$ minikube service grafana -n jenkins
+minikube service grafana -n jenkins
 ....
 
 and explore logs and metrics produced by the agent.
@@ -124,6 +125,10 @@ You can filter the logs and metrics by service_instance_id which is equal to the
 
 [source,console]
 ....
-$ minikube stop
-$ minikube delete
+minikube stop
+....
+
+[source,console]
+....
+minikube delete
 ....
